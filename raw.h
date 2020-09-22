@@ -1,5 +1,4 @@
 #define ETH_LEN	1518
-#define ETHER_TYPE	0x0800
 #define DEFAULT_IF	"eth0"
 
 struct eth_hdr_s {
