@@ -34,38 +34,7 @@
 #define PROTO_UDP 17
 
 
-int recv_raw_udp(int socket, uint8_t *src_ip, uint16_t src_port, uint8_t *dst_ip, uint16_t dst_port, uint8_t *payload, uint16_t size)
-{
-	uint8_t raw_buffer[ETH_LEN];
-	struct eth_frame_s *raw = (struct eth_frame_s *)&raw_buffer;
-	while(1)
-	{	
-		int numbytes = recvfrom(socket, raw_buffer, ETH_LEN, 0, NULL, NULL);
-		if (raw->ethernet.eth_type == ntohs(ETH_P_IP))
-		{
-			if(raw->ip.proto == PROTO_UDP)
-			{
-				src_ip = raw->ip.src;
-				dst_ip = raw->ip.dst;
-				dst_port = ntohs(raw->udp.dst_port);
-				src_port = ntohs(raw->udp.src_port);
-				payload = (char *)&raw->udp + sizeof(struct udp_hdr_s);
-				printf("received UDP message\n");
-				printf("Source port: %d ##### Destination port: %d", src_port, dst_port);
-				printf("Source : %d.%d.%d.%d\n",raw->ip.src[0],raw->ip.src[1],raw->ip.src[2],raw->ip.src[3]);
-				printf("Destination : %d.%d.%d.%d\n",raw->ip.dst[0],raw->ip.dst[1],raw->ip.dst[2],raw->ip.dst[3]);
-				printf("message: %s\n", payload);
-					//p = (char *)&raw->udp + ntohs(raw->udp.udp_len);
-				//	*p = '\0';
-				//	printf("src port: %d dst port: %d size: %d msg: %s", 
-				//	ntohs(raw->udp.src_port), ntohs(raw->udp.dst_port),
-				//	ntohs(raw->udp.udp_len), (char *)&raw->udp + sizeof(struct udp_hdr_s)
-					
-			}
-		}
-				continue;
-	}
-}
+
 
 
 int main(int argc, char *argv[])
@@ -134,10 +103,6 @@ int main(int argc, char *argv[])
 		tx_len += sizeof(struct ether_header);
 
 		/* ARP HEADER*/
-		//sendbuf[tx_len++] = 0xde;
-		//sendbuf[tx_len++] = 0xad;
-		//sendbuf[tx_len++] = 0xbe;
-		//sendbuf[tx_len++] = 0xef;
 		memcpy(sendbuf + tx_len, ARP_header, sizeof(ARP_header));
 		tx_len += sizeof(ARP_header);
 		
